@@ -50,7 +50,7 @@ export interface Response {
     value: boolean,
     options?: PaginationOptions & {
       resourceTypes?: string[];
-      includePreviousNavigations?: number;
+      includePreviousNavigations?: boolean;
     },
   ): void;
   setIncludeConsoleData(
