@@ -29,10 +29,11 @@
 - **[Network](#network)** (2 tools)
   - [`get_network_request`](#get_network_request)
   - [`list_network_requests`](#list_network_requests)
-- **[Debugging](#debugging)** (5 tools)
+- **[Debugging](#debugging)** (6 tools)
   - [`evaluate_script`](#evaluate_script)
   - [`get_console_message`](#get_console_message)
   - [`list_console_messages`](#list_console_messages)
+  - [`take_change_snapshot`](#take_change_snapshot)
   - [`take_screenshot`](#take_screenshot)
   - [`take_snapshot`](#take_snapshot)
 
@@ -316,6 +317,18 @@ so returned values have to JSON-serializable.
 - **pageIdx** (integer) _(optional)_: Page number to return (0-based). When omitted, returns the first page.
 - **pageSize** (integer) _(optional)_: Maximum number of messages to return. When omitted, returns all requests.
 - **types** (array) _(optional)_: Filter messages to only return messages of the specified resource types. When omitted or empty, returns all messages.
+
+---
+
+### `take_change_snapshot`
+
+**Description:** Capture accessibility (AX) changes compared to a stored baseline and report only the differences. Use this when you are polling dynamic views—think WebSocket chats, live dashboards, or any SPA regions that refresh while you wait—to confirm that expected elements appeared or attributes flipped without flooding the context with the entire tree.
+
+**Parameters:**
+
+- **baselineKey** (string) _(optional)_: Identifier used to store the baseline snapshot. Defaults to "default".
+- **compareTo** (string) _(optional)_: Compare against a different baseline key. When omitted, compares against the same key as baselineKey.
+- **replaceBaseline** (boolean) _(optional)_: Whether to replace the stored baseline with the latest snapshot. Defaults to true.
 
 ---
 

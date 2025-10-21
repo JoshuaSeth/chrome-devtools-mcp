@@ -6,9 +6,10 @@
 
 import type {Dialog, ElementHandle, Page} from 'puppeteer-core';
 
-import type {TextSnapshotNode} from '../McpContext.js';
+import type {TextSnapshot, TextSnapshotNode} from '../McpContext.js';
 import {zod} from '../third_party/modelcontextprotocol-sdk/index.js';
 import type {TraceResult} from '../trace-processing/parse.js';
+import type {NormalizedSnapshot} from '../utils/accessibilityDiff.js';
 import type {PaginationOptions} from '../utils/types.js';
 
 import type {ToolCategories} from './categories.js';
@@ -84,6 +85,11 @@ export type Context = Readonly<{
   getAXNodeByUid(uid: string): TextSnapshotNode | undefined;
   setNetworkConditions(conditions: string | null): void;
   setCpuThrottlingRate(rate: number): void;
+  captureAccessibilitySnapshot(options?: {
+    verbose?: boolean;
+  }): Promise<TextSnapshot | null>;
+  getAccessibilityBaseline(key: string): NormalizedSnapshot | undefined;
+  setAccessibilityBaseline(key: string, snapshot: NormalizedSnapshot): void;
   saveTemporaryFile(
     data: Uint8Array<ArrayBufferLike>,
     mimeType: 'image/png' | 'image/jpeg' | 'image/webp',

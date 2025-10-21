@@ -6,7 +6,12 @@
 import assert from 'node:assert';
 import {describe, it} from 'node:test';
 
-import {takeSnapshot, waitFor} from '../../src/tools/snapshot.js';
+import {McpResponse} from '../../src/McpResponse.js';
+import {
+  takeChangeSnapshot,
+  takeSnapshot,
+  waitFor,
+} from '../../src/tools/snapshot.js';
 import {html, withBrowser} from '../utils.js';
 
 describe('snapshot', () => {
@@ -120,6 +125,95 @@ describe('snapshot', () => {
           'Element with text "Hello iframe" found.',
         );
         assert.ok(response.includeSnapshot);
+      });
+    });
+  });
+
+  describe('take_change_snapshot', () => {
+    it('creates a baseline when none exist', async () => {
+      await withBrowser(async (_response, context) => {
+        const page = await context.getSelectedPage();
+        await page.setContent(
+          html`<main>
+            <button
+              id="toggle"
+              aria-pressed="false"
+              >Toggle</button
+            >
+          </main>`,
+        );
+
+        const response = new McpResponse();
+        await takeChangeSnapshot.handler({params: {}}, response, context);
+
+        assert.ok(
+          response.responseLines[0].includes('No baseline found for key'),
+        );
+        assert.ok(context.getAccessibilityBaseline('default'));
+      });
+    });
+
+    it('reports changes between snapshots without returning the full tree', async () => {
+      await withBrowser(async (_response, context) => {
+        const page = await context.getSelectedPage();
+        await page.setContent(
+          html`<main>
+            <button
+              id="toggle"
+              aria-pressed="false"
+              >Toggle</button
+            >
+            <section
+              id="messages"
+              role="log"
+            ></section>
+          </main>`,
+        );
+
+        const baselineResponse = new McpResponse();
+        await takeChangeSnapshot.handler(
+          {
+            params: {
+              baselineKey: 'chat',
+            },
+          },
+          baselineResponse,
+          context,
+        );
+
+        await page.evaluate(() => {
+          const button = document.getElementById('toggle');
+          button?.setAttribute('aria-pressed', 'true');
+          const container = document.getElementById('messages');
+          if (container) {
+            const alert = document.createElement('div');
+            alert.setAttribute('role', 'alert');
+            alert.textContent = 'New socket message!';
+            container.append(alert);
+          }
+        });
+
+        const diffResponse = new McpResponse();
+        await takeChangeSnapshot.handler(
+          {
+            params: {
+              baselineKey: 'chat',
+              replaceBaseline: false,
+            },
+          },
+          diffResponse,
+          context,
+        );
+
+        const lines = diffResponse.responseLines.join('\n');
+        assert.ok(
+          lines.includes('Accessibility changes compared to baseline "chat":'),
+        );
+        assert.ok(lines.includes('Added nodes:'));
+        assert.ok(lines.includes('Changed nodes:'));
+        assert.ok(lines.includes('pressed: false -> true'));
+        assert.ok(lines.includes('New socket message!'));
+        assert.ok(!diffResponse.includeSnapshot);
       });
     });
   });

@@ -35,7 +35,13 @@ MCP clients.
 
 ## Getting started
 
-Add the following config to your MCP client:
+Add the following config to your MCP client. If you want to run from a local clone (for example to use the latest features before they are published), run the following anywhere on your machine (it rebuilds the local copy and points Codex at it):
+
+```bash
+cd /Users/sethvanderbijl/PitchAI\ Code/chrome-devtools-mcp && npm run build && codex mcp remove chrome-devtools && codex mcp add chrome-devtools node "/Users/sethvanderbijl/PitchAI Code/chrome-devtools-mcp/build/src/index.js"
+```
+
+Adjust the path if your clone lives elsewhere.
 
 ```json
 {
@@ -265,10 +271,11 @@ If you run into any issues, checkout our [troubleshooting guide](./docs/troubles
 - **Network** (2 tools)
   - [`get_network_request`](docs/tool-reference.md#get_network_request)
   - [`list_network_requests`](docs/tool-reference.md#list_network_requests)
-- **Debugging** (5 tools)
+- **Debugging** (6 tools)
   - [`evaluate_script`](docs/tool-reference.md#evaluate_script)
   - [`get_console_message`](docs/tool-reference.md#get_console_message)
   - [`list_console_messages`](docs/tool-reference.md#list_console_messages)
+  - [`take_change_snapshot`](docs/tool-reference.md#take_change_snapshot)
   - [`take_screenshot`](docs/tool-reference.md#take_screenshot)
   - [`take_snapshot`](docs/tool-reference.md#take_snapshot)
 

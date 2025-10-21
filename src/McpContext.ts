@@ -26,6 +26,7 @@ import {takeSnapshot} from './tools/snapshot.js';
 import {CLOSE_PAGE_ERROR} from './tools/ToolDefinition.js';
 import type {Context} from './tools/ToolDefinition.js';
 import type {TraceResult} from './trace-processing/parse.js';
+import type {NormalizedSnapshot} from './utils/accessibilityDiff.js';
 import {WaitForHelper} from './WaitForHelper.js';
 
 export interface TextSnapshotNode extends SerializedAXNode {
@@ -82,6 +83,7 @@ export class McpContext implements Context {
   #textSnapshot: TextSnapshot | null = null;
   #networkCollector: NetworkCollector;
   #consoleCollector: PageCollector<ConsoleMessage | Error>;
+  #accessibilityBaselines = new Map<string, NormalizedSnapshot>();
 
   #isRunningTrace = false;
   #networkConditionsMap = new WeakMap<Page, string>();
@@ -307,52 +309,28 @@ export class McpContext implements Context {
    * Creates a text snapshot of a page.
    */
   async createTextSnapshot(verbose = false): Promise<void> {
-    const page = this.getSelectedPage();
-    const rootNode = await page.accessibility.snapshot({
-      includeIframes: true,
-      interestingOnly: !verbose,
-    });
-    if (!rootNode) {
+    const snapshot = await this.#generateAccessibilitySnapshot(verbose);
+    if (!snapshot) {
+      this.#textSnapshot = null;
       return;
     }
-
-    const snapshotId = this.#nextSnapshotId++;
-    // Iterate through the whole accessibility node tree and assign node ids that
-    // will be used for the tree serialization and mapping ids back to nodes.
-    let idCounter = 0;
-    const idToNode = new Map<string, TextSnapshotNode>();
-    const assignIds = (node: SerializedAXNode): TextSnapshotNode => {
-      const nodeWithId: TextSnapshotNode = {
-        ...node,
-        id: `${snapshotId}_${idCounter++}`,
-        children: node.children
-          ? node.children.map(child => assignIds(child))
-          : [],
-      };
-
-      // The AXNode for an option doesn't contain its `value`.
-      // Therefore, set text content of the option as value.
-      if (node.role === 'option') {
-        const optionText = node.name;
-        if (optionText) {
-          nodeWithId.value = optionText.toString();
-        }
-      }
-
-      idToNode.set(nodeWithId.id, nodeWithId);
-      return nodeWithId;
-    };
-
-    const rootNodeWithId = assignIds(rootNode);
-    this.#textSnapshot = {
-      root: rootNodeWithId,
-      snapshotId: String(snapshotId),
-      idToNode,
-    };
+    this.#textSnapshot = snapshot;
   }
 
   getTextSnapshot(): TextSnapshot | null {
     return this.#textSnapshot;
+  }
+
+  async captureAccessibilitySnapshot(
+    options: {verbose?: boolean} = {},
+  ): Promise<TextSnapshot | null> {
+    const snapshot = await this.#generateAccessibilitySnapshot(
+      options.verbose ?? false,
+    );
+    if (snapshot) {
+      this.#textSnapshot = snapshot;
+    }
+    return snapshot;
   }
 
   async saveTemporaryFile(
@@ -421,5 +399,60 @@ export class McpContext implements Context {
 
   getNetworkRequestStableId(request: HTTPRequest): number {
     return this.#networkCollector.getIdForResource(request);
+  }
+
+  getAccessibilityBaseline(key: string): NormalizedSnapshot | undefined {
+    return this.#accessibilityBaselines.get(key);
+  }
+
+  setAccessibilityBaseline(key: string, snapshot: NormalizedSnapshot): void {
+    this.#accessibilityBaselines.set(key, snapshot);
+  }
+
+  deleteAccessibilityBaseline(key: string): void {
+    this.#accessibilityBaselines.delete(key);
+  }
+
+  async #generateAccessibilitySnapshot(
+    verbose: boolean,
+  ): Promise<TextSnapshot | null> {
+    const page = this.getSelectedPage();
+    const rootNode = await page.accessibility.snapshot({
+      includeIframes: true,
+      interestingOnly: !verbose,
+    });
+    if (!rootNode) {
+      return null;
+    }
+
+    const snapshotId = this.#nextSnapshotId++;
+    let idCounter = 0;
+    const idToNode = new Map<string, TextSnapshotNode>();
+    const assignIds = (node: SerializedAXNode): TextSnapshotNode => {
+      const nodeWithId: TextSnapshotNode = {
+        ...node,
+        id: `${snapshotId}_${idCounter++}`,
+        children: node.children
+          ? node.children.map(child => assignIds(child))
+          : [],
+      };
+
+      if (node.role === 'option') {
+        const optionText = node.name;
+        if (optionText) {
+          nodeWithId.value = optionText.toString();
+        }
+      }
+
+      idToNode.set(nodeWithId.id, nodeWithId);
+      return nodeWithId;
+    };
+
+    const rootNodeWithId = assignIds(rootNode);
+    return {
+      root: rootNodeWithId,
+      snapshotId: String(snapshotId),
+      idToNode,
+    };
   }
 }
